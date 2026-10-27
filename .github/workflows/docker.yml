@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Recuperer le code
+        uses: actions/checkout@v4
 
       - name: Lint du Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
@@ -28,9 +29,9 @@ jobs:
 
       - name: Tests dans le conteneur
         run: docker run --rm ${{ env.IMAGE }}:ci python -m unittest -v
-      
+
       - name: Rapport Trivy (JSON)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: ${{ env.IMAGE }}:ci
           format: json
@@ -49,11 +50,15 @@ jobs:
       - name: Resume dans la page du run
         if: always()
         run: |
-          echo "### Rapport Trivy" >> "$GITHUB_STEP_SUMMARY"
-          for s in CRITICAL HIGH MEDIUM; do
-            n=$(jq "[.Results[]?.Vulnerabilities[]? | select(.Severity==\"$s\")] | length" trivy-report.json)
-            echo "- $s : $n" >> "$GITHUB_STEP_SUMMARY"
-          done
+          if [ -f trivy-report.json ]; then
+            echo "### Rapport Trivy" >> "$GITHUB_STEP_SUMMARY"
+            for s in CRITICAL HIGH MEDIUM; do
+              n=$(jq "[.Results[]?.Vulnerabilities[]? | select(.Severity==\"$s\")] | length" trivy-report.json)
+              echo "- $s : $n" >> "$GITHUB_STEP_SUMMARY"
+            done
+          else
+            echo "Rapport Trivy non genere : consulter les logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Publier les rapports
         if: always()
